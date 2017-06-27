@@ -108,6 +108,8 @@ single_buffers = [
   [0b11_0_11_11_1, 0x00_00_00_0a, 1,     11,        'Hello worldxxx'].pack('CL>Q>S>a14'),
   [0b11_1_11_11_1, 0x00_00_00_0b, 1,     11,        'Hello worldxxx'].pack('CL>Q>S>a14'),
   [0b11_1_11_11_1, 0x00_00_00_0c, 1,      0,        'xxx'].pack('CL>Q>S>a3'),
+
+  # TODO: add bad frames
 ]
 
 single_buffers.each do |buffer|

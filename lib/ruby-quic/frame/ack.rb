@@ -10,8 +10,18 @@ class QUIC::Frame
     def initialize largest_ack, ack_delay, acks, timestamps
       @largest_ack = largest_ack
       @ack_delay = ack_delay
-      @acks = acks
-      @timestamps = timestamps
+      #@acks = acks
+      #@timestamps = timestamps
+      @timestamps = timestamps.map {|offs,ts| [largest_ack+offs, ts] }
+
+      @ranges = []
+      start = largest_ack
+      acks.each_with_index do |n, i|
+        if i % 2 == 0
+          @ranges << (start..start+n)
+        end
+        start += n
+      end
     end
     class <<self
       # in: buffer

@@ -25,6 +25,7 @@ class QUIC::Frame
       frames = []
       until buffer.empty?
         frame, buffer = parse_one buffer
+        yield frame if block_given?
         frames << frame
       end
       frames
