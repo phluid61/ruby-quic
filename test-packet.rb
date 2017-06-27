@@ -1,6 +1,8 @@
 # encoding: BINARY
 
-require_relative 'lib/ruby-quic/quic-packet'
+puts '###', '### Testing QUIC::Packet.parse', '###'
+
+require_relative 'lib/ruby-quic/packet'
 
 udp_payloads = [
   "\x81\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x00\x00\x04\xff\x00\x00\x04",
@@ -28,7 +30,7 @@ udp_payloads = [
 
 udp_payloads.each do |udp_payload|
   begin
-    packet = QUICPacket.parse udp_payload
+    packet = QUIC::Packet.parse udp_payload
     p packet
   rescue Exception => ex
     puts ex

@@ -1,7 +1,10 @@
 # encoding: BINARY
 # frozen_string_literal: true
 
-class QUICPacket
+module QUIC
+end
+
+class QUIC::Packet
   VERSION = 0xff00_0004
 
   def initialize type, connection_id, packet_number, data, version=VERSION
@@ -31,7 +34,7 @@ class QUICPacket
 
         if vers != VERSION
           # unknown packet type
-          return QUICPacket.new(type, cid, pnum, buffer, vers)
+          return new(type, cid, pnum, buffer, vers)
         end
       else
         cid_flag = xtype & 0x40
@@ -69,31 +72,31 @@ class QUICPacket
         # version negotiation buffer
         raise "invalid Version Negotiation Buffer (payload length should be multiple of 32-bits)" if buffer.bytesize % 4 != 0
         versions = buffer.unpack 'L>*'
-        QUICPacket.new(type, cid, pnum, versions)
+        new(type, cid, pnum, versions)
       when 0x02
         # client initial (cleartext)
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       when 0x03
         # server stateless retry (cleartext)
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       when 0x04
         # server cleartext
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       when 0x05
         # client cleartext
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       when 0x06
         # 0-RTT protected
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       when 0x07
         # 1-RTT protected (key phase 0)
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       when 0x08
         # 1-RTT protected (key phase 1)
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       when 0x09
         # public reset (??)
-        QUICPacket.new(type, cid, pnum, buffer)
+        new(type, cid, pnum, buffer)
       else
         raise "bad Packet type #{type}"
       end
