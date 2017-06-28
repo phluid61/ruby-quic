@@ -43,6 +43,6 @@ begin
   frames = QUIC::Frame.parse(whole_buffer) {|f| p f }
   puts frames.length
 rescue Exception => ex
-  puts ex
+  puts ex, *ex.backtrace.map{|b|"  #{b}"}
 end
 

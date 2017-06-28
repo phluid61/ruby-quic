@@ -4,10 +4,13 @@
 module QUIC
 end
 
+require_relative 'frame'
+require_relative 'super-strong-crypto'
+
 class QUIC::Packet
   VERSION = 0xff00_0004
 
-  def initialize type, connection_id, packet_number, data, version=VERSION
+  def initialize type, connection_id, packet_number, buffer, version=VERSION
     raise "invalid type #{type.inspect}" unless (type & 0x7f) == type
     raise "invalid connection_id #{connection_id.inspect}" unless connection_id.nil? || (connection_id & 0xffff_ffff_ffff_ffff) == connection_id
     raise "invalid packet_number #{packet_number.inspect}" unless (packet_number & 0xffff_ffff) == packet_number
@@ -16,12 +19,17 @@ class QUIC::Packet
     @connection_id = connection_id
     @packet_number = packet_number
     @version = version
-    @data = data
+    @buffer = buffer
+
+    @connection = nil
   end
+
+  attr_reader :type, :connection_id, :packet_number, :version, :buffer, :connection
+  attr_writer :connection
 
   # DEBUG
   def inspect
-    "\#<#{self.class.name} @type=#{'0x%02x' % @type} @connection_id=#{@connection_id.nil? ? 'nil' : ('0x%016x' % @connection_id)} @packet_number=#{'0x%08x' % @packet_number} @version=#{@version.nil? ? 'nil' : ('0x%08x' % @version)} @data=#{@data.inspect}>"
+    "\#<#{self.class.name} @type=#{'0x%02x' % @type} @connection_id=#{@connection_id.nil? ? 'nil' : ('0x%016x' % @connection_id)} @packet_number=#{'0x%08x' % @packet_number} @version=#{@version.nil? ? 'nil' : ('0x%08x' % @version)}>"
   end
 
   class <<self
@@ -69,38 +77,59 @@ class QUIC::Packet
 
       case type
       when 0x01
-        # version negotiation buffer
-        raise "invalid Version Negotiation Buffer (payload length should be multiple of 32-bits)" if buffer.bytesize % 4 != 0
-        versions = buffer.unpack 'L>*'
-        new(type, cid, pnum, versions)
+        VersionNegotiationPacket.new(type, cid, pnum, buffer)
       when 0x02
         # client initial (cleartext)
-        new(type, cid, pnum, buffer)
+        CleartextPacket.new(type, cid, pnum, buffer)
       when 0x03
         # server stateless retry (cleartext)
-        new(type, cid, pnum, buffer)
+        CleartextPacket.new(type, cid, pnum, buffer)
       when 0x04
         # server cleartext
-        new(type, cid, pnum, buffer)
+        CleartextPacket.new(type, cid, pnum, buffer)
       when 0x05
         # client cleartext
-        new(type, cid, pnum, buffer)
+        CleartextPacket.new(type, cid, pnum, buffer)
       when 0x06
         # 0-RTT protected
-        new(type, cid, pnum, buffer)
+        ProtectedPacket.new(type, cid, pnum, buffer)
       when 0x07
         # 1-RTT protected (key phase 0)
-        new(type, cid, pnum, buffer)
+        ProtectedPacket.new(type, cid, pnum, buffer)
       when 0x08
         # 1-RTT protected (key phase 1)
-        new(type, cid, pnum, buffer)
+        ProtectedPacket.new(type, cid, pnum, buffer)
       when 0x09
         # public reset (??)
-        new(type, cid, pnum, buffer)
+        PublicResetPacket.new(type, cid, pnum, buffer)
       else
         raise "bad Packet type #{type}"
       end
     end
+  end
+
+  class VersionNegotiationPacket < QUIC::Packet
+    def versions
+      if !@versions
+        raise "invalid Version Negotiation Buffer (payload length should be multiple of 32-bits)" if @buffer.bytesize % 4 != 0
+        @versions = @buffer.unpack 'L>*'
+      end
+      @versions
+    end
+  end
+  class CleartextPacket < QUIC::Packet
+    def frames
+      @frames ||= QUIC::Frame.parse(@buffer)
+    end
+  end
+
+  class ProtectedPacket < QUIC::Packet
+    def frames
+      @frames ||= QUIC::Frame.parse(decrypt(@buffer, @connection.key))
+    end
+  end
+
+  class PublicResetPacket < QUIC::Packet
   end
 end
 

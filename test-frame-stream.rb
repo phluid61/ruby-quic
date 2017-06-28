@@ -117,7 +117,7 @@ single_buffers.each do |buffer|
     frame, rest = QUIC::Frame.parse_one buffer
     p [frame, rest]
   rescue Exception => ex
-    puts ex
+    puts ex, *ex.backtrace.map{|b|"  #{b}"}
   end
 end
 
