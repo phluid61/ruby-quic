@@ -14,11 +14,52 @@ class QUIC::Frame
       @data = data
       @fin = fin
     end
-    attr_reader :streamid, :offset, :data, :fin
+    attr_accessor :streamid, :offset, :data, :fin
 
     # DEBUG
     def inspect
       "\#<#{self.class.name} @streamid=#{'0x%08x' % @streamid} @offset=#{@offset} @fin=#{@fin.inspect} @data=#{@data.inspect}>"
+    end
+
+    def serialize
+      type = 0xc0
+
+      type |= 0x20 if @fin
+
+      if @streamid <= 0xff
+        streamid_b = [@streamid].pack('C')
+      elsif @streamid <= 0xffff
+        type |= 0x08
+        streamid_b = [@streamid].pack('S>')
+      elsif @streamid <= 0xffffffff
+        type |= 0x10
+        streamid_b = [@streamid].pack('L>')
+      else
+        type |= 0x18
+        streamid_b = [@streamid].pack('Q>')
+      end
+
+      if @offset == 0
+        offset_b = ''
+      elsif @offset <= 0xffff
+        type |= 0x02
+        offset_b = [@offset].pack('S>')
+      elsif @offset <= 0xffffffff
+        type |= 0x04
+        offset_b = [@offset].pack('L>')
+      else
+        type |= 0x06
+        offset_b = [@offset].pack('Q>')
+      end
+
+      if @fin
+        datalen_b = ''
+      else
+        type |= 0x01
+        datalen_b = [@data.bytesize].pack('S>')
+      end
+
+      [type,streamid_b,offset_b,datalen_b,@data].pack('Ca*a*a*a*')
     end
 
     class <<self
