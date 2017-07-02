@@ -11,6 +11,9 @@ class QUIC::Frame
       @largest_client_streamid = largest_client_streamid
       @largest_server_streamid = largest_server_streamid
     end
+    def serialize
+      [Type, @largest_client_streamid, @largest_server_streamid].pack 'CL>L>'
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

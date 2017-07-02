@@ -11,6 +11,9 @@ class QUIC::Frame
       @error_code = error_code
       @reason_phrase = reason_phrase
     end
+    def serialize
+      [Type, @error_code, @reason_phrase.bytesize, @reason_phrase].pack 'CL>S>a*'
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

@@ -12,6 +12,9 @@ class QUIC::Frame
       @error_code = error_code
       @final_offset = final_offset
     end
+    def serialize
+      [Type, @streamid, @error_code, @final_offset].pack 'CL>L>Q>'
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

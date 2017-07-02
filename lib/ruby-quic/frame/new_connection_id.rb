@@ -11,6 +11,9 @@ class QUIC::Frame
       @sequence = sequence
       @connection_id = connection_id
     end
+    def serialize
+      [Type, @sequence, @connection_id].pack 'CS>Q>'
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

@@ -7,6 +7,10 @@ end
 class QUIC::Frame
   class PING
     Type = 0x07
+    Bytes = "\x07"
+    def serialize
+      Bytes
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

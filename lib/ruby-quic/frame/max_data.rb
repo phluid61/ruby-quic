@@ -10,6 +10,9 @@ class QUIC::Frame
     def initialize maxdata
       @maxdata = maxdata
     end
+    def serialize
+      [Type, @maxdata].pack 'CQ>'
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

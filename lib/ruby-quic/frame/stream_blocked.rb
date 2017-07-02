@@ -10,6 +10,9 @@ class QUIC::Frame
     def initialize streamid
       @streamid = streamid
     end
+    def serialize
+      [Type, @streamid].pack 'CL>'
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

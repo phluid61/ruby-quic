@@ -7,6 +7,10 @@ end
 class QUIC::Frame
   class PADDING < QUIC::Frame
     Type = 0x00
+    Bytes = "\x00"
+    def serialize
+      Bytes
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

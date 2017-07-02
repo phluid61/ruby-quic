@@ -11,6 +11,9 @@ class QUIC::Frame
       @streamid = streamid
       @maxdata = maxdata
     end
+    def serialize
+      [Type, @streamid, @maxdata].pack 'CL>Q>'
+    end
     class <<self
       # in: buffer
       # out: frame, buffer

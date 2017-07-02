@@ -7,6 +7,10 @@ end
 class QUIC::Frame
   class BLOCKED < QUIC::Frame
     Type = 0x08
+    Bytes = "\x08"
+    def serialize
+      Bytes
+    end
     class <<self
       # in: buffer
       # out: frame, buffer
