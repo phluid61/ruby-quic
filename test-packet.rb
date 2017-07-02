@@ -63,7 +63,7 @@ udp_payloads.each do |udp_payload|
     when QUIC::Packet::CleartextPacket
       packet.frames.each{|f|puts "  #{f.inspect}"}
     when QUIC::Packet::ProtectedPacket
-      packet.connection = QUIC::Connection.new
+      packet.connection = QUIC::Connection.new 0
       packet.frames.each{|f|puts "  #{f.inspect}"}
     when QUIC::Packet::PublicResetPacket
       # ...

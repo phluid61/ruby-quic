@@ -10,26 +10,19 @@ require_relative 'super-strong-crypto'
 class QUIC::Packet
   VERSION = 0xff00_0004
 
-  def initialize type, connection_id, packet_number, buffer, version=VERSION
-    raise "invalid type #{type.inspect}" unless (type & 0x7f) == type
+  def initialize connection_id, packet_number
     raise "invalid connection_id #{connection_id.inspect}" unless connection_id.nil? || (connection_id & 0xffff_ffff_ffff_ffff) == connection_id
     raise "invalid packet_number #{packet_number.inspect}" unless (packet_number & 0xffff_ffff) == packet_number
-    raise "invalid version #{version.inspect}" unless (version & 0xffff_ffff) == version
-    @type = type
     @connection_id = connection_id
     @packet_number = packet_number
-    @version = version
-    @buffer = buffer
-
     @connection = nil
   end
 
-  attr_reader :type, :connection_id, :packet_number, :version, :buffer, :connection
+  attr_reader :connection, :packet_number
   attr_writer :connection
 
-  # DEBUG
-  def inspect
-    "\#<#{self.class.name} @type=#{'0x%02x' % @type} @connection_id=#{@connection_id.nil? ? 'nil' : ('0x%016x' % @connection_id)} @packet_number=#{'0x%08x' % @packet_number} @version=#{@version.nil? ? 'nil' : ('0x%08x' % @version)}>"
+  def serialize_header
+    [self.class::Type, @connection_id, @packet_number, VERSION].pack 'CQ>L>L>'
   end
 
   class <<self
@@ -42,7 +35,7 @@ class QUIC::Packet
 
         if vers != VERSION
           # unknown packet type
-          return new(type, cid, pnum, buffer, vers)
+          return OutversionPacket.new(type, cid, pnum, buffer, vers)
         end
       else
         cid_flag = xtype & 0x40
@@ -72,64 +65,121 @@ class QUIC::Packet
 
         # 0x07 = 1-RTT protected (key phase 0)
         # 0x08 = 1-RTT protected (key phase 1)
-        type = (key_flag == 0 ? 0x07 : 0x08)
+        type = (key_flag == 0 ? ProtectedPacketPhase0::Type : ProtectedPacketPhase1::Type)
       end
 
       case type
-      when 0x01
-        VersionNegotiationPacket.new(type, cid, pnum, buffer)
-      when 0x02
-        # client initial (cleartext)
-        CleartextPacket.new(type, cid, pnum, buffer)
-      when 0x03
-        # server stateless retry (cleartext)
-        CleartextPacket.new(type, cid, pnum, buffer)
-      when 0x04
-        # server cleartext
-        CleartextPacket.new(type, cid, pnum, buffer)
-      when 0x05
-        # client cleartext
-        CleartextPacket.new(type, cid, pnum, buffer)
-      when 0x06
-        # 0-RTT protected
-        ProtectedPacket.new(type, cid, pnum, buffer)
-      when 0x07
-        # 1-RTT protected (key phase 0)
-        ProtectedPacket.new(type, cid, pnum, buffer)
-      when 0x08
-        # 1-RTT protected (key phase 1)
-        ProtectedPacket.new(type, cid, pnum, buffer)
-      when 0x09
-        # public reset (??)
-        PublicResetPacket.new(type, cid, pnum, buffer)
+      when VersionNegotiationPacket::Type
+        VersionNegotiationPacket.new(cid, pnum, buffer)
+      when ClientInitialPacket::Type
+        ClientInitialPacket.new(cid, pnum, buffer)
+      when ServerStatelessRetryPacket::Type
+        ServerStatelessRetryPacket.new(cid, pnum, buffer)
+      when ServerCleartextPacket::Type
+        ServerCleartextPacket.new(cid, pnum, buffer)
+      when ClientCleartextPacket::Type
+        ClientCleartextPacket.new(cid, pnum, buffer)
+      when ProtectedPacket0RTT::Type
+        ProtectedPacket0RTT.new(cid, pnum, buffer)
+      when ProtectedPacketPhase0::Type
+        ProtectedPacketPhase0.new(cid, pnum, buffer)
+      when ProtectedPacketPhase1::Type
+        ProtectedPacketPhase1.new(cid, pnum, buffer)
+      when PublicResetPacket::Type
+        PublicResetPacket.new(cid, pnum, buffer)
       else
         raise "bad Packet type #{type}"
       end
     end
   end
 
+  class OutversionPacket < QUIC::Packet
+    def initialize type, connection_id, packet_number, buffer, version
+      raise "invalid type #{type.inspect}" unless (type & 0x7f) == type
+      raise "invalid version #{version.inspect}" unless (version & 0xffff_ffff) == version
+      super(connection_id, packet_number)
+      @type = type
+      @buffer = buffer
+      @version = version
+    end
+    def serialize_header
+      [@type, connection.id, packet_number, @version].pack 'CQ>L>L>'
+    end
+    def serialize
+      [@type, connection.id, packet_number, @version, @buffer].pack 'CQ>L>L>a*'
+    end
+  end
+
   class VersionNegotiationPacket < QUIC::Packet
-    def versions
-      if !@versions
-        raise "invalid Version Negotiation Buffer (payload length should be multiple of 32-bits)" if @buffer.bytesize % 4 != 0
-        @versions = @buffer.unpack 'L>*'
-      end
-      @versions
+    Type = 0x01
+    def initialize connection_id, packet_number, buffer
+      super(connection_id, packet_number)
+      raise "invalid Version Negotiation Buffer (payload length should be multiple of 32-bits)" if buffer.bytesize % 4 != 0
+      @versions = buffer.unpack 'L>*'
+    end
+    attr_reader :versions
+    def serialize
+      @versions.inject(serialize_header) {|b, v| b + [v].pack('L>') }
     end
   end
   class CleartextPacket < QUIC::Packet
+    def initialize connection_id, packet_number, buffer
+      super(connection_id, packet_number)
+      @buffer = buffer
+    end
     def frames
       @frames ||= QUIC::Frame.parse(@buffer)
     end
+    def serialize
+      @frames.inject(serialize_header) {|b, f| b + f.serialize }
+    end
+  end
+  class ClientInitialPacket < CleartextPacket
+    Type = 0x02
+  end
+  class ServerStatelessRetryPacket < CleartextPacket
+    Type = 0x03
+  end
+  class ServerCleartextPacket < CleartextPacket
+    Type = 0x04
+  end
+  class ClientCleartextPacket < CleartextPacket
+    Type = 0x05
   end
 
   class ProtectedPacket < QUIC::Packet
+    def initialize connection_id, packet_number, buffer
+      super(connection_id, packet_number)
+      @buffer = buffer
+    end
+    attr_reader :frames
     def frames
       @frames ||= QUIC::Frame.parse(decrypt(@buffer, @connection.key))
     end
+    def serialize
+      payload = @frames.inject(String.new) {|b, f| b + f.serialize }
+      serialize_header + encrypt(payload, connection.key)
+    end
+  end
+  class ProtectedPacket0RTT < ProtectedPacket
+    Type = 0x06
+  end
+  class ProtectedPacketPhase0 < ProtectedPacket
+    Type = 0x07
+  end
+  class ProtectedPacketPhase1 < ProtectedPacket
+    Type = 0x08
   end
 
   class PublicResetPacket < QUIC::Packet
+    Type = 0x09
+    def initialize connection_id, packet_number, buffer
+      super(connection_id, packet_number)
+      @buffer = buffer
+    end
+    def serialize
+      serialize_header
+    end
   end
 end
 
