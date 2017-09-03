@@ -4,6 +4,7 @@
 module QUIC
 end
 
+require_relative 'transport-parameters'
 require_relative 'packet'
 
 class QUIC::Connection

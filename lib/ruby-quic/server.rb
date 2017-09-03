@@ -1,6 +1,10 @@
 # encoding: BINARY
 # frozen_string_literal: true
 
+require_relative 'quic'
+require_relative 'connection'
+require_relative 'packet'
+
 require 'socket'
 
 module QUIC
