@@ -8,7 +8,6 @@ require_relative 'frame'
 require_relative 'super-strong-crypto'
 
 class QUIC::Packet
-  VERSION = 0xff00_0004
 
   def initialize connection_id, packet_number
     raise "invalid connection_id #{connection_id.inspect}" unless connection_id.nil? || (connection_id & 0xffff_ffff_ffff_ffff) == connection_id
@@ -18,11 +17,11 @@ class QUIC::Packet
     @connection = nil
   end
 
-  attr_reader :connection, :packet_number
-  attr_writer :connection
+  attr_reader :connection_id, :packet_number
+  attr_accessor :connection
 
   def serialize_header
-    [self.class::Type, @connection_id, @packet_number, VERSION].pack 'CQ>L>L>'
+    [self.class::Type, @connection_id, @packet_number, QUIC::VERSION].pack 'CQ>L>L>'
   end
 
   class <<self
@@ -33,7 +32,7 @@ class QUIC::Packet
         raise "invalid Long Header (too short -- need at least 17 bytes)" if buffer.bytesize < 16
         cid, pnum, vers, buffer = buffer.unpack 'Q>L>L>a*'
 
-        if vers != VERSION
+        if vers != QUIC::VERSION
           # unknown packet type
           return OutversionPacket.new(type, cid, pnum, buffer, vers)
         end
@@ -103,10 +102,10 @@ class QUIC::Packet
       @version = version
     end
     def serialize_header
-      [@type, connection.id, packet_number, @version].pack 'CQ>L>L>'
+      [@type, connection_id, packet_number, @version].pack 'CQ>L>L>'
     end
     def serialize
-      [@type, connection.id, packet_number, @version, @buffer].pack 'CQ>L>L>a*'
+      [@type, connection_id, packet_number, @version, @buffer].pack 'CQ>L>L>a*'
     end
   end
 
