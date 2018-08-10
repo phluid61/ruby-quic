@@ -1,6 +1,7 @@
 # encoding: BINARY
 # frozen_string_literal: true
 
+require_relative 'quic'
 require_relative 'frame/padding'
 require_relative 'frame/rst_stream'
 require_relative 'frame/connection_close'
@@ -15,9 +16,6 @@ require_relative 'frame/stream_id_needed'
 require_relative 'frame/new_connection_id'
 require_relative 'frame/ack'
 require_relative 'frame/stream'
-
-module QUIC
-end
 
 class QUIC::Frame
   class <<self

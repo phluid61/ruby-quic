@@ -1,9 +1,7 @@
 # encoding: BINARY
 # frozen_string_literal: true
 
-module QUIC
-end
-
+require_relative 'quic'
 require_relative 'frame'
 require_relative 'super-strong-crypto'
 

@@ -1,9 +1,7 @@
 # encoding: BINARY
 # frozen_string_literal: true
 
-module QUIC
-end
-
+require_relative 'quic'
 require_relative 'transport-parameters'
 require_relative 'packet'
 
